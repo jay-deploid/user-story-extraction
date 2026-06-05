@@ -293,7 +293,6 @@ High: X | Medium: X | Low: X priority
 XL stories flagged for breakdown: [IDs or "none"]
 Open TBC items: [key items or "none"]
 
-📦 [X] stories ready to review — say "open story viewer" to continue
 ```
 
 Do NOT include a Google Sheets link. The Sheet is created separately
