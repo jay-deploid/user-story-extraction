@@ -5,8 +5,8 @@ description: >
   and acceptance criteria from a requirements register. Accepts either a Google
   Doc URL (output from the requirements-extraction skill) or pasted REQ items.
   Supports full backlog generation or scoped runs (one epic or specific REQs).
-  Outputs a Google Sheet with one row per story, ready for Jira or ADO import,
-  and a canonical JSON file saved to Claude project storage for the story viewer.
+  Outputs a canonical JSON file saved to Claude project storage for the story
+  viewer. Google Sheet export is a separate on-demand step.
 
   ALWAYS trigger this skill when the user:
   - Says "generate user stories", "write stories", "create the backlog"
@@ -21,8 +21,11 @@ description: >
 # User Story Skill
 
 Generates Salesforce user stories and acceptance criteria from a requirements
-register. Outputs a Google Sheet backlog ready for Jira or ADO import, and
-a canonical JSON file saved to Claude project storage.
+register. Saves a canonical JSON file to Claude project storage. The story
+viewer opens automatically after each run for team review.
+
+Do NOT create a Google Sheet during this skill run. Sheet export is a
+separate skill triggered on demand after stories have been reviewed.
 
 ---
 
@@ -40,7 +43,7 @@ Also check for:
 - **Project name** — needed for file naming
 - **SF Cloud context** — needed for persona selection and OOB vs custom flags
   - If not stated, infer from the requirements content
-  - If still unclear, flag as TBC in the Notes column and proceed
+  - If still unclear, flag as TBC in the Notes field and proceed
 
 ---
 
@@ -68,16 +71,13 @@ inaccurate personas and unreliable OOB flags.
 
 ## Step 2 — Load Reference Files
 
-Before generating any stories, read all three reference files:
+Before generating any stories, read both reference files:
 
 1. `references/salesforce-personas.md` — load the persona table for the relevant
    cloud(s). Use this to write accurate "As a..." lines.
 
-2. `references/google-sheets-output.md` — load the column structure, formatting
-   rules, and MCP output instructions. You will need this at Step 7.
-
-3. `references/story-schema.json` — load the canonical JSON schema. You will
-   need this at Step 9 to assemble the JSON output correctly.
+2. `references/story-schema.json` — load the canonical JSON schema. You will
+   need this at Step 7 to assemble the JSON output correctly.
 
 ---
 
@@ -85,7 +85,7 @@ Before generating any stories, read all three reference files:
 
 Process each REQ item in scope. For each requirement produce one primary story.
 If a requirement contains multiple distinct user actions, split into sub-stories
-(e.g. US-012a, US-012b) and note the parent REQ in the REQ Ref column.
+(e.g. US-012a, US-012b) and note the parent REQ in the `req_ref` field.
 
 ### Story format
 
@@ -134,14 +134,14 @@ Then [the expected outcome is observed]
 
 ## Step 5 — Assign Metadata
 
-For each story assign the following. Refer to `references/google-sheets-output.md`
-for full guidance on each field.
+For each story assign the following fields.
 
 ### OOB or Custom
 - **OOB** — achievable with standard Salesforce config (Flows, validation rules,
   standard objects, assignment rules, page layouts, approval processes)
 - **Custom** — requires Apex, LWC, custom integrations, or significant platform extension
-- **TBC** — genuinely unclear; add a note in the Notes column explaining what needs confirming
+- **TBC** — genuinely unclear; add a note in the `salesforce.notes` field explaining
+  what needs confirming
 
 When uncertain, use TBC rather than guessing. A wrong OOB flag creates false
 confidence in the project estimate.
@@ -155,88 +155,68 @@ confidence in the project estimate.
 | L | 1–2 weeks — complex automation, integration config, custom LWC |
 | XL | > 2 weeks or high uncertainty — flag for breakdown |
 
-### Priority (MoSCoW)
-- **Must Have** — launch is blocked without this
-- **Should Have** — important but a workaround exists for go-live
-- **Could Have** — nice to have; include only if budget allows
-- **Won't Have** — explicitly out of scope this phase
+### Priority
+| Value | Meaning |
+|---|---|
+| High | Launch is blocked without this — maps to Must Have |
+| Medium | Important but a workaround exists for go-live — maps to Should Have |
+| Low | Nice to have; include only if budget allows — maps to Could Have |
 
-If priority is not determinable from context, default to Should Have and note it.
+If priority is not determinable from context, default to Medium and note it in
+`salesforce.notes`.
+
+### Phase
+- **1** — explicitly in scope for initial delivery, or clearly core to the solution
+- **2** — deferred, mentioned as "later" or "next stage", or unlikely given complexity
+- **TBC** — cannot be determined from source material
+
+### Confidence
+- **High** — requirement was clearly stated and confirmed
+- **Medium** — inferred with reasonable certainty or stated but not confirmed
+- **Low** — fragmented, contradicted, or raised in passing
 
 ---
 
 ## Step 6 — Quality Check
 
-Before writing to Sheets, verify each story:
+Before assembling the JSON, verify each story:
 
 - [ ] "As a" uses a specific Salesforce persona, not a generic role
 - [ ] "I want" describes a user action, not a technical implementation
 - [ ] "So that" describes a business outcome, not a system state
 - [ ] Minimum 2 AC scenarios per story, happy path is first
 - [ ] OOB/Custom assignment is defensible — not guessed
-- [ ] XL stories are flagged in Notes for breakdown
-- [ ] Stories referencing FLAGS or AMBs have a note in the Notes column
-- [ ] Story IDs are sequential and unique across the whole sheet
-- [ ] Every story references its source REQ in the REQ Ref column
+- [ ] XL stories have a note in `salesforce.notes` flagging breakdown needed
+- [ ] Stories referencing FLAGS or AMBs have a note in `salesforce.notes`
+- [ ] Story IDs are sequential and unique across the full backlog
+- [ ] Every story references its source REQ in `req_ref`
 
 ---
 
-## Step 7 — Write to Google Sheets
+## Step 7 — Assemble and Save Canonical JSON
 
-Read `references/google-sheets-output.md` for the full column structure,
-MCP connection details, file naming convention, and error handling.
+Assemble all generated stories into the canonical JSON structure per
+`references/story-schema.json`. This file is the single source of truth
+for the story viewer and all downstream exports.
 
-Key points:
-- Assemble all rows in memory before making any MCP calls
-- File name: `[ProjectName] — User Story Backlog — [YYYY-MM-DD]`
-- If epic-scoped: `[ProjectName] — User Story Backlog — [EpicName] — [YYYY-MM-DD]`
-- Target: root of user's Google Drive
-- Return the Google Sheets URL after creation
-- If the write fails, output as a markdown table in chat — never silently drop output
+### 7.1 — Assemble the JSON
 
----
+Build the full JSON object. Every field in the schema must be present.
+Rules for fields not determinable at generation time:
 
-## Step 8 — Post-run Summary
+- `story_points` → `null`
+- `status` → `"draft"` for all stories on first generation
+- `reviewed_by` → `null`
+- `reviewed_at` → `null`
+- `comments` → `[]`
+- `dependencies` → `[]` unless a dependency is explicitly known
 
-After the Sheet is created, return a brief summary in chat:
-
-```
-✅ User story backlog created: [link]
-
-Stories generated: X
-Epics covered: [list]
-OOB: X | Custom: X | TBC: X
-Must Have: X | Should Have: X | Could Have: X
-
-XL stories flagged for breakdown: [IDs or "none"]
-Open TBC items before build: [key items or "none"]
-```
-
----
-
-## Step 9 — Assemble and Save Canonical JSON
-
-After the post-run summary, assemble all generated stories into the canonical
-JSON structure and save to Claude project storage. This file is the single
-source of truth for the story viewer and all downstream exports.
-
-### 9.1 — Assemble the JSON
-
-Build the JSON object per `references/story-schema.json`. Every field in the
-schema must be present. Rules for fields not determinable at this stage:
-
-- `story_points` — set to `null` (assigned during sprint planning)
-- `status` — set to `"draft"` for all stories on first generation
-- `reviewed_by` — set to `null`
-- `reviewed_at` — set to `null`
-- `comments` — set to `[]`
-
-For acceptance criteria, use the following format per AC item:
+For acceptance criteria, map each scenario using the correct format:
 
 - Given/When/Then scenarios → `format: "bdd"` with `given`, `when`, `then` fields
-- Checklist statements (if any) → `format: "checklist"` with `statement` field
+- Checklist-style statements → `format: "checklist"` with `statement` field
 
-Populate the `summary` block by counting across all stories before writing:
+Populate the `summary` block by counting across all assembled stories:
 
 ```json
 "summary": {
@@ -249,60 +229,94 @@ Populate the `summary` block by counting across all stories before writing:
 }
 ```
 
-### 9.2 — Save to Claude project storage
+Populate the `epics` array from the epic groupings identified in Step 1:
 
-Save the assembled JSON to Claude project storage using the following filename
-convention:
+```json
+"epics": [
+  {
+    "id": "EPIC-001",
+    "name": "[Epic name]",
+    "description": "[One sentence from the requirements context]",
+    "phase": 1,
+    "story_count": X,
+    "salesforce_cloud": "[Cloud]"
+  }
+]
+```
+
+### 7.2 — Save to Claude project storage
+
+Save the assembled JSON to Claude project storage using this filename convention:
 
 ```
-[ProjectName]-stories.json
+[projectname]-stories.json
 ```
+
+Use lowercase and hyphens, no spaces or special characters.
 
 Examples:
 - `acme-corp-service-cloud-stories.json`
 - `techstart-sales-cloud-stories.json`
 
-Use lowercase, hyphens instead of spaces, no special characters. If no project
-name was provided, use `client-unknown-stories.json`.
+If no project name was provided, use `client-unknown-stories.json`.
 
-If an existing `[ProjectName]-stories.json` already exists in project storage
-from a previous run, overwrite it. The JSON is always the latest complete run.
-For epic-scoped runs, merge the new stories into the existing file rather than
-overwriting — preserve stories from other epics that are already present.
+**Full run:** overwrite any existing file with the same name.
+**Epic-scoped run:** merge new stories into the existing file — preserve
+stories from other epics already present. Update the `summary` block to
+reflect the full file after merging.
 
-### 9.3 — Confirm in chat
-
-After saving, append a single line to the post-run summary:
-
-```
-📦 Canonical JSON saved: [ProjectName]-stories.json ([X] stories)
-```
-
-### Error handling
+### 7.3 — Error handling
 
 If the project storage write fails:
 1. Do not silently drop the output
 2. Output the full JSON in a code block in chat so nothing is lost
-3. Note the save failed and ask the user to copy it manually or retry
+3. Tell the user the save failed and ask them to copy it manually or retry
+
+---
+
+## Step 8 — Post-run Summary
+
+After saving the JSON, return this summary in chat:
+
+```
+✅ Stories generated and saved
+
+Project: [ProjectName]
+JSON saved: [projectname]-stories.json
+
+Stories generated: X
+Epics covered: [list]
+Phase 1: X | Phase 2: X | TBC: X
+OOB: X | Custom: X | TBC: X
+High: X | Medium: X | Low: X priority
+
+XL stories flagged for breakdown: [IDs or "none"]
+Open TBC items: [key items or "none"]
+
+📦 [X] stories ready to review — say "open story viewer" to continue
+```
+
+Do NOT include a Google Sheets link. The Sheet is created separately
+on demand via the sheet-export skill after the team has reviewed stories.
 
 ---
 
 ## Edge Cases
 
 **Requirement is solution-framed** (e.g. "Build a Flow that sends an email"):
-Reframe as a user need. Note in the Notes column that the original was
+Reframe as a user need. Note in `salesforce.notes` that the original was
 solution-framed and has been rewritten.
 
 **Requirement maps to multiple stories**: Create sub-stories (US-012a, US-012b),
-all linked to the same REQ ref.
+all referencing the same parent REQ in `req_ref`.
 
 **Ambiguity on the source REQ**: Generate the story on best-judgment, note the
-ambiguity in the Notes column, mark Priority as TBC until resolved.
+ambiguity in `salesforce.notes`, set confidence to Low.
 
-**No project name provided**: Use `[Client Unknown]` in the file name and flag
-in the post-run summary.
+**No project name provided**: Use `client-unknown` in the filename, flag
+in the post-run summary, and ask the consultant to confirm the project name.
 
-**Epic-scoped run on an existing backlog**: Note in the summary that story IDs
-should be checked against the existing sheet to avoid conflicts. When saving
-JSON, merge into the existing project JSON rather than overwriting — preserve
-all stories from other epics.
+**Epic-scoped run on an existing backlog**: Merge into the existing JSON.
+Note in the summary that story IDs have been checked for conflicts and
+confirm the highest existing ID so the consultant can verify sequencing.
+
