@@ -1,0 +1,188 @@
+{
+  "_schema_version": "1.0",
+  "_notes": "Canonical user story schema. This file is written by the user-story skill only. All downstream systems (mini app, Sheet export, PM tool push) read from this. Only the review app writes back to the status field on each story.",
+
+  "project": {
+    "id": "acme-service-cloud-2026",
+    "name": "Acme Corp — Service Cloud",
+    "client": "Acme Corp",
+    "salesforce_cloud": ["Service Cloud"],
+    "extracted_date": "2026-06-03",
+    "requirements_register_url": "https://docs.google.com/document/d/XXXX",
+    "phase_in_scope": 1,
+    "consultant": "Jane Smith"
+  },
+
+  "summary": {
+    "total_stories": 24,
+    "phase_1": 18,
+    "phase_2": 6,
+    "by_status": {
+      "draft": 20,
+      "approved": 3,
+      "flagged": 1,
+      "deferred": 0
+    },
+    "by_confidence": {
+      "high": 14,
+      "medium": 8,
+      "low": 2
+    },
+    "by_epic": {
+      "Case Management & SLA": 8,
+      "Case Routing & Queue Management": 5,
+      "Knowledge Base & Article Management": 4,
+      "Customer Communication & Templates": 4,
+      "Reporting & Service Analytics": 3
+    }
+  },
+
+  "epics": [
+    {
+      "id": "EPIC-001",
+      "name": "Case Management & SLA",
+      "description": "Creation, lifecycle management, and SLA tracking for customer cases.",
+      "phase": 1,
+      "story_count": 8,
+      "salesforce_cloud": "Service Cloud"
+    },
+    {
+      "id": "EPIC-002",
+      "name": "Case Routing & Queue Management",
+      "description": "Rules and logic for routing cases to the right team or agent.",
+      "phase": 1,
+      "story_count": 5,
+      "salesforce_cloud": "Service Cloud"
+    }
+  ],
+
+  "stories": [
+    {
+      "id": "US-001",
+      "req_ref": "REQ-012",
+      "epic_id": "EPIC-001",
+      "epic_name": "Case Management & SLA",
+
+      "title": "As a Service Agent I want to create a case from an inbound email so that customer issues are automatically logged without manual entry",
+
+      "persona": "Service Agent",
+      "i_want": "create a case from an inbound email",
+      "so_that": "customer issues are automatically logged without manual entry",
+
+      "description": "When a customer sends an email to the support address, a case should be automatically created in Salesforce and assigned to the correct queue. The agent should be able to see the original email content within the case record.",
+
+      "acceptance_criteria": [
+        {
+          "id": "AC-001-01",
+          "format": "checklist",
+          "statement": "Inbound emails to support@acme.com automatically create a new Case record"
+        },
+        {
+          "id": "AC-001-02",
+          "format": "checklist",
+          "statement": "Case subject is populated from the email subject line"
+        },
+        {
+          "id": "AC-001-03",
+          "format": "checklist",
+          "statement": "Original email is visible in the case email thread"
+        },
+        {
+          "id": "AC-001-04",
+          "format": "bdd",
+          "given": "A customer sends an email to support@acme.com",
+          "when": "The email is received by Salesforce",
+          "then": "A Case is created with Status = New and assigned to the General Support queue"
+        }
+      ],
+
+      "phase": 1,
+      "priority": "High",
+      "confidence": "High",
+      "story_points": null,
+      "tshirt_size": "M",
+      "status": "draft",
+
+      "salesforce": {
+        "build_type": "OOB",
+        "feature": "Email-to-Case",
+        "notes": "Standard Email-to-Case configuration. No custom dev expected."
+      },
+
+      "flags": [],
+      "ambiguities": ["AMB-004"],
+      "dependencies": [],
+
+      "tags": ["Service Cloud", "OOB", "Email", "Phase 1"],
+
+      "created_at": "2026-06-03T10:00:00Z",
+      "updated_at": "2026-06-03T10:00:00Z",
+      "reviewed_by": null,
+      "reviewed_at": null
+    },
+
+    {
+      "id": "US-002",
+      "req_ref": "REQ-015",
+      "epic_id": "EPIC-001",
+      "epic_name": "Case Management & SLA",
+
+      "title": "As a Service Agent I want to see the SLA countdown on a case so that I can prioritise my work before a breach occurs",
+
+      "persona": "Service Agent",
+      "i_want": "see the SLA countdown on a case",
+      "so_that": "I can prioritise my work before a breach occurs",
+
+      "description": "Each case must display the remaining time against the SLA milestone. Agents need a visual indicator when a case is approaching or has breached SLA.",
+
+      "acceptance_criteria": [
+        {
+          "id": "AC-002-01",
+          "format": "checklist",
+          "statement": "Case record displays remaining time to first response SLA milestone"
+        },
+        {
+          "id": "AC-002-02",
+          "format": "checklist",
+          "statement": "SLA indicator turns amber when less than 2 hours remain"
+        },
+        {
+          "id": "AC-002-03",
+          "format": "checklist",
+          "statement": "SLA indicator turns red when breached"
+        },
+        {
+          "id": "AC-002-04",
+          "format": "bdd",
+          "given": "A case has an active SLA milestone",
+          "when": "Less than 2 hours remain before breach",
+          "then": "The SLA indicator on the case record displays in amber and the assigned agent receives a bell notification"
+        }
+      ],
+
+      "phase": 1,
+      "priority": "High",
+      "confidence": "Medium",
+      "story_points": null,
+      "tshirt_size": "L",
+      "status": "flagged",
+
+      "salesforce": {
+        "build_type": "OOB",
+        "feature": "Entitlements & Milestones",
+        "notes": "Standard entitlement process. Amber threshold of 2hrs needs confirming with client — not explicitly stated in source."
+      },
+
+      "flags": ["FLAG-002"],
+      "ambiguities": ["AMB-007"],
+      "dependencies": ["US-001"],
+
+      "tags": ["Service Cloud", "OOB", "SLA", "Phase 1"],
+
+      "created_at": "2026-06-03T10:00:00Z",
+      "updated_at": "2026-06-03T11:30:00Z",
+      "reviewed_by": "Jane Smith",
+      "reviewed_at": "2026-06-03T11:30:00Z"
+    }
+  ]
+}
