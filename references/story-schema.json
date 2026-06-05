@@ -1,0 +1,119 @@
+{
+  "_schema_version": "1.0",
+  "_notes": "Canonical user story schema. Written by the user-story skill only. All downstream systems (story viewer, sheet export, PM tool push) read from this file. Only the review app writes back to status fields.",
+
+  "_state": {
+    "last_story_id": "US-000",
+    "last_epic_id": "EPIC-000",
+    "last_run_epic": null,
+    "last_run_date": null,
+    "epics_complete": [],
+    "epics_remaining": []
+  },
+
+  "project": {
+    "id": "acme-service-cloud-2026",
+    "name": "Acme Corp — Service Cloud",
+    "client": "Acme Corp",
+    "salesforce_cloud": ["Service Cloud"],
+    "extracted_date": "2026-06-03",
+    "requirements_register_url": "https://docs.google.com/document/d/XXXX",
+    "phase_in_scope": 1,
+    "consultant": "Jane Smith"
+  },
+
+  "summary": {
+    "total_stories": 0,
+    "phase_1": 0,
+    "phase_2": 0,
+    "by_status": {
+      "draft": 0,
+      "approved": 0,
+      "flagged": 0,
+      "deferred": 0
+    },
+    "by_confidence": {
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    },
+    "by_epic": {}
+  },
+
+  "epics": [
+    {
+      "id": "EPIC-001",
+      "name": "Case Management & SLA",
+      "description": "Creation, lifecycle management, and SLA tracking for customer cases.",
+      "phase": 1,
+      "story_count": 0,
+      "salesforce_cloud": "Service Cloud"
+    }
+  ],
+
+  "stories": [
+    {
+      "id": "US-001",
+      "req_ref": "REQ-012",
+      "epic_id": "EPIC-001",
+      "epic_name": "Case Management & SLA",
+
+      "title": "As a Service Agent I want to create a case from an inbound email so that customer issues are automatically logged without manual entry",
+
+      "persona": "Service Agent",
+      "i_want": "create a case from an inbound email",
+      "so_that": "customer issues are automatically logged without manual entry",
+
+      "description": "When a customer sends an email to the support address, a case should be automatically created in Salesforce and assigned to the correct queue. The agent should be able to see the original email content within the case record.",
+
+      "acceptance_criteria": [
+        {
+          "id": "AC-001-01",
+          "format": "checklist",
+          "statement": "Inbound emails to support@acme.com automatically create a new Case record"
+        },
+        {
+          "id": "AC-001-02",
+          "format": "checklist",
+          "statement": "Case subject is populated from the email subject line"
+        },
+        {
+          "id": "AC-001-03",
+          "format": "checklist",
+          "statement": "Original email is visible in the case email thread"
+        },
+        {
+          "id": "AC-001-04",
+          "format": "bdd",
+          "given": "A customer sends an email to support@acme.com",
+          "when": "The email is received by Salesforce",
+          "then": "A Case is created with Status = New and assigned to the General Support queue"
+        }
+      ],
+
+      "phase": 1,
+      "priority": "High",
+      "confidence": "High",
+      "story_points": null,
+      "tshirt_size": "M",
+      "status": "draft",
+
+      "salesforce": {
+        "build_type": "OOB",
+        "feature": "Email-to-Case",
+        "notes": "Standard Email-to-Case configuration. No custom dev expected."
+      },
+
+      "flags": [],
+      "ambiguities": ["AMB-004"],
+      "dependencies": [],
+      "tags": ["Service Cloud", "OOB", "Email", "Phase 1"],
+
+      "created_at": "2026-06-03T10:00:00Z",
+      "updated_at": "2026-06-03T10:00:00Z",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "comments": []
+    }
+  ]
+}
