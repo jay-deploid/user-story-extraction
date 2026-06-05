@@ -5,7 +5,8 @@ description: >
   and acceptance criteria from a requirements register. Accepts either a Google
   Doc URL (output from the requirements-extraction skill) or pasted REQ items.
   Supports full backlog generation or scoped runs (one epic or specific REQs).
-  Outputs a Google Sheet with one row per story, ready for Jira or ADO import.
+  Outputs a Google Sheet with one row per story, ready for Jira or ADO import,
+  and a canonical JSON file saved to Claude project storage for the story viewer.
 
   ALWAYS trigger this skill when the user:
   - Says "generate user stories", "write stories", "create the backlog"
@@ -20,7 +21,8 @@ description: >
 # User Story Skill
 
 Generates Salesforce user stories and acceptance criteria from a requirements
-register. Outputs a Google Sheet backlog ready for Jira or ADO import.
+register. Outputs a Google Sheet backlog ready for Jira or ADO import, and
+a canonical JSON file saved to Claude project storage.
 
 ---
 
@@ -66,13 +68,16 @@ inaccurate personas and unreliable OOB flags.
 
 ## Step 2 — Load Reference Files
 
-Before generating any stories, read both reference files:
+Before generating any stories, read all three reference files:
 
 1. `references/salesforce-personas.md` — load the persona table for the relevant
    cloud(s). Use this to write accurate "As a..." lines.
 
 2. `references/google-sheets-output.md` — load the column structure, formatting
-   rules, and MCP output instructions. You will need this at Step 6.
+   rules, and MCP output instructions. You will need this at Step 7.
+
+3. `references/story-schema.json` — load the canonical JSON schema. You will
+   need this at Step 9 to assemble the JSON output correctly.
 
 ---
 
@@ -209,6 +214,79 @@ Open TBC items before build: [key items or "none"]
 
 ---
 
+## Step 9 — Assemble and Save Canonical JSON
+
+After the post-run summary, assemble all generated stories into the canonical
+JSON structure and save to Claude project storage. This file is the single
+source of truth for the story viewer and all downstream exports.
+
+### 9.1 — Assemble the JSON
+
+Build the JSON object per `references/story-schema.json`. Every field in the
+schema must be present. Rules for fields not determinable at this stage:
+
+- `story_points` — set to `null` (assigned during sprint planning)
+- `status` — set to `"draft"` for all stories on first generation
+- `reviewed_by` — set to `null`
+- `reviewed_at` — set to `null`
+- `comments` — set to `[]`
+
+For acceptance criteria, use the following format per AC item:
+
+- Given/When/Then scenarios → `format: "bdd"` with `given`, `when`, `then` fields
+- Checklist statements (if any) → `format: "checklist"` with `statement` field
+
+Populate the `summary` block by counting across all stories before writing:
+
+```json
+"summary": {
+  "total_stories": X,
+  "phase_1": X,
+  "phase_2": X,
+  "by_status": { "draft": X, "approved": 0, "flagged": 0, "deferred": 0 },
+  "by_confidence": { "high": X, "medium": X, "low": X },
+  "by_epic": { "[Epic Name]": X }
+}
+```
+
+### 9.2 — Save to Claude project storage
+
+Save the assembled JSON to Claude project storage using the following filename
+convention:
+
+```
+[ProjectName]-stories.json
+```
+
+Examples:
+- `acme-corp-service-cloud-stories.json`
+- `techstart-sales-cloud-stories.json`
+
+Use lowercase, hyphens instead of spaces, no special characters. If no project
+name was provided, use `client-unknown-stories.json`.
+
+If an existing `[ProjectName]-stories.json` already exists in project storage
+from a previous run, overwrite it. The JSON is always the latest complete run.
+For epic-scoped runs, merge the new stories into the existing file rather than
+overwriting — preserve stories from other epics that are already present.
+
+### 9.3 — Confirm in chat
+
+After saving, append a single line to the post-run summary:
+
+```
+📦 Canonical JSON saved: [ProjectName]-stories.json ([X] stories)
+```
+
+### Error handling
+
+If the project storage write fails:
+1. Do not silently drop the output
+2. Output the full JSON in a code block in chat so nothing is lost
+3. Note the save failed and ask the user to copy it manually or retry
+
+---
+
 ## Edge Cases
 
 **Requirement is solution-framed** (e.g. "Build a Flow that sends an email"):
@@ -225,4 +303,6 @@ ambiguity in the Notes column, mark Priority as TBC until resolved.
 in the post-run summary.
 
 **Epic-scoped run on an existing backlog**: Note in the summary that story IDs
-should be checked against the existing sheet to avoid conflicts.
+should be checked against the existing sheet to avoid conflicts. When saving
+JSON, merge into the existing project JSON rather than overwriting — preserve
+all stories from other epics.
