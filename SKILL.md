@@ -5,7 +5,8 @@ description: >
   and acceptance criteria from a requirements register. Accepts either a Google
   Doc URL (output from the requirements-extraction skill) or pasted REQ items.
   Default scope is one epic per run. All-epics is an explicit override.
-  Outputs canonical JSON to Claude project storage. Google Sheet export is a separate on-demand step.
+  Outputs canonical JSON to Claude project storage. The story viewer opens
+  automatically after each run. Google Sheet export is a separate on-demand step.
 
   ALWAYS trigger this skill when the user:
   - Says "generate user stories", "write stories", "create the backlog"
@@ -198,130 +199,142 @@ plan is complete.
 
 ---
 
-## Step 5 — Generate User Stories
+## Step 5 — Generate Directly to JSON
 
-Work through the decomposition plan. For each story in the plan:
+Work through each story in the decomposition plan. For every story,
+reason first then write the JSON object directly. No prose output.
 
-### Story format
+### Before writing each JSON object, internally reason:
+
+**Persona**
+Which specific persona from `references/salesforce-personas.md` fits
+this story? Is it cloud-appropriate? Is it specific enough?
+
+**"I want" action**
+Does this describe what the user does — not how it is built?
+Does it contain "and"? If so, this should have been split in Step 4.
+
+**"So that" outcome**
+Is this grounded in the Project Context — Client Goal and Current Pain?
+Generic outcomes like "so that I can do my job better" are not acceptable.
+Use what the client actually said.
+
+**`salesforce.feature`**
+What specific Salesforce feature is being configured or built?
+Never leave this blank. Use Salesforce knowledge to name it precisely.
+Examples: Email-to-Case, Omni-Channel Routing, Entitlements & Milestones,
+Web-to-Lead, Forecasting Categories, Scheduling Policy, Action Plans.
+
+**`salesforce.build_type`**
+OOB — standard config only. Custom — requires Apex, LWC, integration.
+TBC — unclear without further discovery. When uncertain use TBC.
+A wrong OOB flag creates false confidence in the project estimate.
+
+**Acceptance criteria**
+Plan the scenarios before writing them:
+- Scenario 1: happy path — always first
+- Scenario 2: edge case or boundary condition
+- Scenario 3: error state or failure (where relevant)
+- Scenario 4: validation scenario — required if source REQ is Low confidence
+Use `format: "bdd"` for flow-based scenarios, `format: "checklist"`
+for simple verifiable states. Mix both within a story.
+
+**Priority**
+High — launch blocked without this. Medium — workaround exists.
+Low — nice to have. Default to Medium if not determinable.
+
+**T-shirt size**
+XS < 1 day | S 1–2 days | M 3–5 days | L 1–2 weeks | XL > 2 weeks.
+Size against Salesforce implementation effort. XL must have a breakdown
+note in `salesforce.notes`.
+
+**Dependencies**
+Does this story in a Type C sequence depend on another story being
+complete first? If yes, populate `dependencies` with the preceding
+story ID.
+
+**Tags**
+Cloud name, build type, phase, and relevant feature area.
+
+### Then write the complete JSON story object in one pass:
+
+```json
+{
+  "id": "US-00X",
+  "req_ref": "REQ-XXX",
+  "epic_id": "EPIC-00X",
+  "epic_name": "[Epic name]",
+  "title": "As a [persona] I want [action] so that [outcome]",
+  "persona": "[persona]",
+  "i_want": "[action]",
+  "so_that": "[outcome grounded in Project Context]",
+  "description": "[1-2 sentences expanding on the story context]",
+  "acceptance_criteria": [
+    {
+      "id": "AC-00X-01",
+      "format": "bdd",
+      "given": "[context]",
+      "when": "[action]",
+      "then": "[observable outcome]"
+    },
+    {
+      "id": "AC-00X-02",
+      "format": "checklist",
+      "statement": "[verifiable state]"
+    }
+  ],
+  "phase": 1,
+  "priority": "[High / Medium / Low]",
+  "confidence": "[High / Medium / Low — inherited from source REQ]",
+  "story_points": null,
+  "tshirt_size": "[XS / S / M / L / XL]",
+  "status": "draft",
+  "salesforce": {
+    "build_type": "[OOB / Custom / TBC]",
+    "feature": "[specific Salesforce feature name]",
+    "notes": "[any delivery notes, TBC reasons, or breakdown flags]"
+  },
+  "flags": [],
+  "ambiguities": [],
+  "dependencies": [],
+  "tags": ["[Cloud]", "[OOB/Custom]", "Phase [X]"],
+  "created_at": "[ISO timestamp]",
+  "updated_at": "[ISO timestamp]",
+  "reviewed_by": null,
+  "reviewed_at": null,
+  "comments": []
+}
 ```
-As a [specific Salesforce persona],
-I want [to perform a specific action],
-so that [I achieve a specific business outcome].
-```
 
-### Rules
-- Persona — cloud-appropriate, from `references/salesforce-personas.md`
-- Action — what the user does, never how it is built
-- Outcome — business value grounded in the Project Context.
-  Use Client Goal and Current Pain to make the "so that" meaningful,
-  not generic. `"so that I can do my job better"` is not acceptable.
-- One story = one user need
-
-### Populate `salesforce.feature`
-For every story, name the specific Salesforce feature being configured
-or built. Use your Salesforce knowledge — do not leave this blank.
-
-Examples:
-- Email-to-Case, Omni-Channel Routing, Entitlements & Milestones
-- Web-to-Lead, Opportunity Stages, Forecasting Categories
-- Scheduling Policy, Work Order Management, FSL Mobile App
-- Household Model, Action Plans, Recurring Donations
-
-### Detect dependencies
-Where a story in a Type C decomposition must be completed before
-another can be built or tested, populate the `dependencies` field
-with the preceding story ID.
-
-Example: "Configure presence statuses" must be complete before
-"Configure routing rules" — add the presence status story ID to
-the routing story's `dependencies` array.
+Repeat for every story in the decomposition plan before moving to Step 6.
 
 ---
 
-## Step 6 — Generate Acceptance Criteria
+## Step 6 — Quality Check JSON
 
-For each story write a minimum of 2 and maximum of 5 Given/When/Then
-scenarios following the rules in `references/generate-user-story.md`.
+After all story objects are written, validate against this checklist.
+Fix any issues in the JSON directly — do not rewrite in prose.
 
-### Scenario order
-1. Happy path — always first
-2. Edge case or boundary condition
-3. Error state or failure scenario
-4. Validation scenario — required for any story from a Low confidence REQ
-
-### AC format in JSON
-Map each scenario correctly:
-- Given/When/Then → `format: "bdd"` with `given`, `when`, `then` fields
-- Checklist statement → `format: "checklist"` with `statement` field
-
-Mix both formats within a story where appropriate — checklist for
-simple verifiable states, BDD for flow-based scenarios.
-
----
-
-## Step 7 — Assign Metadata
-
-For each story assign all required fields:
-
-### Priority
-| Value | Meaning |
-|---|---|
-| High | Launch is blocked without this |
-| Medium | Important but workaround exists for go-live |
-| Low | Nice to have; include only if budget allows |
-
-Default to Medium if not determinable. Note it in `salesforce.notes`.
-
-### T-shirt size (Salesforce implementation effort)
-| Size | Effort |
-|---|---|
-| XS | < 1 day — simple config |
-| S | 1–2 days — standard Flow, page layout |
-| M | 3–5 days — multi-step Flow, custom report type |
-| L | 1–2 weeks — complex automation, integration, custom LWC |
-| XL | > 2 weeks or high uncertainty — flag for breakdown |
-
-XL stories must have a note in `salesforce.notes` flagging breakdown needed.
-
-### Build type
-- **OOB** — standard Salesforce config only
-- **Custom** — requires Apex, LWC, or custom integration
-- **TBC** — unclear without further discovery
-
-When uncertain use TBC — a wrong OOB flag creates false confidence
-in the project estimate.
-
-### Tags
-Populate the `tags` array with: cloud name, build type, phase,
-and any relevant feature area (e.g. "SLA", "Email", "Mobile").
-
----
-
-## Step 8 — Quality Check
-
-Before assembling JSON, verify every story:
-
-- [ ] Decomposition plan was produced before any stories were written
-- [ ] "As a" uses a specific cloud-appropriate persona
-- [ ] "I want" describes a user action, not a technical implementation
-- [ ] "So that" is grounded in Project Context — not generic
-- [ ] Minimum 2 AC scenarios, happy path is first
-- [ ] Low confidence REQs have a validation AC scenario
-- [ ] `salesforce.feature` is populated on every story
-- [ ] `salesforce.build_type` is OOB / Custom / TBC — not guessed
+- [ ] Every "As a" uses a specific cloud-appropriate persona
+- [ ] Every "I want" describes a user action not a technical implementation
+- [ ] Every "So that" is grounded in Project Context — not generic
+- [ ] Every story has minimum 2 AC scenarios, happy path is first
+- [ ] Every Low confidence story has a validation AC scenario
+- [ ] `salesforce.feature` is populated on every story — none blank
+- [ ] `salesforce.build_type` is OOB / Custom / TBC on every story
 - [ ] XL stories have a breakdown note in `salesforce.notes`
-- [ ] Dependencies are populated where story order matters
-- [ ] Phase 2 stories are absent unless `include_phase_2` was passed
+- [ ] Dependencies populated where story order matters
+- [ ] Phase 2 stories absent unless `include_phase_2` was passed
 - [ ] Story IDs continue sequentially from `_state.last_story_id`
 - [ ] Epic IDs continue sequentially from `_state.last_epic_id`
 - [ ] Every story references its source REQ in `req_ref`
-- [ ] `_state` block is ready to update with this run's values
+- [ ] `confidence` inherited from source REQ on every story
 
 ---
 
-## Step 9 — Assemble and Save Canonical JSON
+## Step 7 — Assemble and Save Canonical JSON
 
-### 9.1 — Assemble the JSON
+### 7.1 — Assemble the JSON
 
 Build the full JSON object per `references/story-schema.json`.
 
@@ -347,7 +360,7 @@ Populate the `epics` array for this run:
 Recalculate the full `summary` block across all stories in the file
 after merging — not just the stories from this run.
 
-### 9.2 — Update the `_state` block
+### 7.2 — Update the `_state` block
 
 After assembling stories, update `_state` with this run's values:
 
@@ -365,7 +378,7 @@ After assembling stories, update `_state` with this run's values:
 `epics_remaining` is calculated by reading the epic list from the
 requirements register and removing all epics in `epics_complete`.
 
-### 9.3 — Save to Claude project storage
+### 7.3 — Save to Claude project storage
 
 Filename convention:
 ```
@@ -380,7 +393,7 @@ and `summary`.
 
 **Full run (`all epics`):** overwrite any existing file.
 
-### 9.4 — Error handling
+### 7.4 — Error handling
 If the project storage write fails:
 1. Do not silently drop output
 2. Output full JSON in a code block in chat
@@ -388,7 +401,7 @@ If the project storage write fails:
 
 ---
 
-## Step 10 — Post-run Summary
+## Step 8 — Post-run Summary
 
 ```
 ✅ Stories generated — [Epic Name]
