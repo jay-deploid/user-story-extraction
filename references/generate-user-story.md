@@ -127,10 +127,3 @@ Split a requirement into multiple stories when:
 
 When splitting, use sub-story IDs: US-012a, US-012b, US-012c.
 All sub-stories reference the same parent REQ in the REQ Ref column.
-
----
-
-## Output reference
-
-See `references/google-sheets-output.md` for the full column structure,
-file naming convention, and instructions for writing the Sheet via Google Drive MCP.
