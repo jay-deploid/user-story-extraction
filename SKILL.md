@@ -5,8 +5,7 @@ description: >
   and acceptance criteria from a requirements register. Accepts either a Google
   Doc URL (output from the requirements-extraction skill) or pasted REQ items.
   Default scope is one epic per run. All-epics is an explicit override.
-  Outputs canonical JSON to Claude project storage. The story viewer opens
-  automatically after each run. Google Sheet export is a separate on-demand step.
+  Outputs canonical JSON to Claude project storage. Google Sheet export is a separate on-demand step.
 
   ALWAYS trigger this skill when the user:
   - Says "generate user stories", "write stories", "create the backlog"
@@ -382,7 +381,7 @@ requirements register and removing all epics in `epics_complete`.
 
 Filename convention:
 ```
-[projectname]-stories.json
+[projectname]-[epicname]-[epicnumber]-stories.json
 ```
 Lowercase, hyphens, no spaces or special characters.
 Examples: `acme-corp-service-cloud-stories.json`
@@ -407,7 +406,7 @@ If the project storage write fails:
 ✅ Stories generated — [Epic Name]
 
 Project: [ProjectName]
-JSON: [projectname]-stories.json
+[projectname]-[epicname]-[epicnumber]-stories.json
 
 This run:
 Stories generated: X | REQs processed: X
