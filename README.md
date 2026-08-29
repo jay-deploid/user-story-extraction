@@ -148,7 +148,8 @@ sequential from `_state`. Issues are fixed in the JSON directly.
 
 ### 7. Assemble and save
 
-Written to project storage as `[project]-[epic]-[number]-stories.json`.
+Written to project storage as `[project]-stories.json` — one canonical file
+per project, not per epic, so each run merges into the same place.
 
 - **Epic run** merges into the existing file, preserving earlier epics
 - **`all epics`** overwrites

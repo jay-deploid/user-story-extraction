@@ -414,10 +414,17 @@ requirements register and removing all epics in `epics_complete`.
 
 Filename convention:
 ```
-[projectname]-[epicname]-[epicnumber]-stories.json
+[projectname]-stories.json
 ```
 Lowercase, hyphens, no spaces or special characters.
-Examples: `acme-corp-service-cloud-stories.json`
+Examples: `acme-corp-stories.json`, `northwind-service-stories.json`
+
+**One file per project, not per epic.** The filename must be identical
+on every run for the same project — it is what Step 1 looks up and what
+the merge below writes into. Do not include the epic name, epic number,
+or run date: an epic-specific filename creates a new file per run, and
+`_state`, the running backlog totals, and `sheet-export` all silently
+lose sight of the earlier epics.
 
 **Epic-scoped run (default):** merge new stories and epics into
 the existing file. Preserve all existing stories. Update `_state`
@@ -439,7 +446,7 @@ If the project storage write fails:
 ✅ Stories generated — [Epic Name]
 
 Project: [ProjectName]
-[projectname]-[epicname]-[epicnumber]-stories.json
+[projectname]-stories.json
 
 This run:
 Stories generated: X | REQs processed: X
