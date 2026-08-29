@@ -146,9 +146,9 @@ Read both reference files before proceeding:
 1. `references/salesforce-personas.md` — load the persona table for the
    relevant cloud(s). Required for accurate "As a..." lines.
 
-2. `references/generate-user-story.md` — load story format rules,
-   decomposition types, and the decomposition plan format. Required
-   before Step 4.
+2. `references/generate-user-story.md` — load story format rules, the
+   two-pass decomposition rules with worked examples, and the
+   decomposition plan format. Required before Step 4.
 
 ---
 
@@ -157,21 +157,45 @@ Read both reference files before proceeding:
 Before writing any stories, produce a decomposition plan for every REQ
 in scope. Do not write a single story until this plan is complete.
 
-Classify each REQ as one of three types using the rules in
-`references/generate-user-story.md`:
+Decomposition runs as **two passes over every REQ**. Do not classify the
+REQ up front and then split accordingly — split first, and let the type
+fall out of what the two passes did. Full rules and worked examples are
+in `references/generate-user-story.md`.
 
-**Type A — Atomic**
-One persona, one action, one outcome. Passes the atomic test.
-Produces 1 story.
+### Pass 1 — Split on the text
+Read the REQ and break it into the distinct user needs it actually
+states. Compound signals: multiple personas, actions, directions
+(push vs request), or filter dimensions. Test: delete a clause — is
+something the client asked for now missing?
 
-**Type B — Compound**
-Compound signals visible in the REQ text (multiple personas, actions,
-directions, or filter dimensions). Produces 2+ stories.
+Pass 1 produces sibling needs. They are usually independent of each
+other and carry no dependencies between them.
 
-**Type C — Implementation Depth**
-Reads as simple but requires multiple stories to configure and deliver
-correctly in Salesforce. Apply Salesforce implementation knowledge —
-not text analysis — to identify these. Produces 2+ stories.
+### Pass 2 — Expand on implementation depth
+Run this on **every** need from Pass 1, including REQs that Pass 1 left
+whole. Ask: what does it actually take to configure, deliver and test
+this in Salesforce? Apply Salesforce implementation knowledge — not
+text analysis. Test: delete a story — does the feature still function
+end to end?
+
+Pass 2 produces a sequence. Populate `dependencies` to encode the build
+order — a Pass 2 expansion with no dependencies between its stories is
+usually a sign the split was textual, not architectural.
+
+### Resulting type
+The type is a label for what happened, used in the run summary. It is
+not stored in the JSON.
+
+| Pass 1 | Pass 2 | Type |
+|---|---|---|
+| no split | no expansion | **A — Atomic** |
+| split | no expansion | **B — Compound** |
+| no split | expansion | **C — Implementation Depth** |
+| split | expansion on ≥1 branch | **B+C** |
+
+A REQ that reads as atomic can still be pure Type C — REQ text that
+states one need may still need five stories to deliver. That case is
+the reason Pass 2 runs on unsplit REQs.
 
 ### Decomposition plan output format
 ```
@@ -181,13 +205,20 @@ REQ-001 → Type A → 1 story
   Reason: [one line]
 
 REQ-012 → Type B → 2 stories
-  Reason: [one line]
+  Reason: [one line — what the text split on]
   Story 1: [brief description]
   Story 2: [brief description]
 
-REQ-019 → Type C → 5 stories (Omni-Channel routing)
-  Reason: [one line]
+REQ-019 → Type C → 5 stories (Omni-Channel Routing)
+  Reason: [one line — what the platform requires]
   Story 1–5: [brief descriptions]
+  Dependency chain: [e.g. 1 → 2 → 3 → 4, 5]
+
+REQ-024 → Type B+C → 6 stories
+  Pass 1: 2 needs — [brief], [brief]
+  Pass 2: [which need expanded] → 5 stories (Omni-Channel Routing)
+  Story 1–6: [brief descriptions]
+  Dependency chain: [e.g. 1 → 2 → 3 → 4, 5; 6 independent]
 
 Total stories this run: X
 ══════════════════
@@ -248,9 +279,10 @@ Size against Salesforce implementation effort. XL must have a breakdown
 note in `salesforce.notes`.
 
 **Dependencies**
-Does this story in a Type C sequence depend on another story being
-complete first? If yes, populate `dependencies` with the preceding
-story ID.
+Does this story come from a Pass 2 expansion that depends on another
+story being complete first? If yes, populate `dependencies` with the
+preceding story ID. Pass 1 siblings are usually independent — leave
+`dependencies` empty unless one genuinely blocks the other.
 
 **Tags**
 Cloud name, build type, phase, and relevant feature area.
@@ -322,7 +354,8 @@ Fix any issues in the JSON directly — do not rewrite in prose.
 - [ ] `salesforce.feature` is populated on every story — none blank
 - [ ] `salesforce.build_type` is OOB / Custom / TBC on every story
 - [ ] XL stories have a breakdown note in `salesforce.notes`
-- [ ] Dependencies populated where story order matters
+- [ ] Dependencies populated on every Pass 2 expansion where build order matters
+- [ ] Pass 1 siblings do not carry dependencies unless one genuinely blocks the other
 - [ ] Phase 2 stories absent unless `include_phase_2` was passed
 - [ ] Story IDs continue sequentially from `_state.last_story_id`
 - [ ] Epic IDs continue sequentially from `_state.last_epic_id`
@@ -410,7 +443,7 @@ Project: [ProjectName]
 
 This run:
 Stories generated: X | REQs processed: X
-Type A: X | Type B: X | Type C: X
+Type A: X | Type B: X | Type C: X | Type B+C: X
 OOB: X | Custom: X | TBC: X
 High: X | Medium: X | Low: X confidence
 
@@ -421,7 +454,7 @@ Epics complete: [list]
 Epics remaining: [list]
 
 XL stories to break down: [IDs or "none"]
-Type C decompositions applied: [feature names or "none"]
+Pass 2 expansions applied: [feature names or "none"]
 Low confidence stories needing validation: [IDs or "none"]
 
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -440,8 +473,9 @@ Doc: [requirements register URL]
 Reframe as a user need. Note in `salesforce.notes` that the original was
 solution-framed and has been rewritten.
 
-**Requirement maps to multiple stories (Type B or C)**: Use sub-story IDs
-(US-012a, US-012b) if splitting a single REQ. All reference same `req_ref`.
+**Requirement maps to multiple stories (Type B, C or B+C)**: Use sub-story
+IDs (US-012a, US-012b) if splitting a single REQ. All reference the same
+`req_ref`, however many passes produced them.
 
 **Low confidence REQ**: Generate story on best-judgment, set confidence to
 Low, add validation AC scenario, note in `salesforce.notes` that the

@@ -115,15 +115,148 @@ Then it works correctly
 
 ## Story Splitting Guide
 
-Split a requirement into multiple stories when:
+Decomposition is **two passes over every REQ**. Do not decide the type
+first and split accordingly — split first, and let the type fall out of
+what the two passes did.
+
+### Pass 1 — Split on the text
+
+Break the REQ into the distinct user needs it actually states.
 
 | Signal | Action |
 |---|---|
 | "and" appears in the action | Split into two stories |
 | Two different personas are involved | One story per persona |
+| Two directions are described (a push and a pull/request) | One story per direction |
+| Multiple filter, report or channel dimensions are listed | One story per dimension |
+
+Test: delete a clause — is something the client asked for now missing?
+
+Pass 1 produces **siblings**. They are usually independent and carry no
+dependencies between them.
+
+### Pass 2 — Expand on implementation depth
+
+Run this on **every** need from Pass 1, including REQs that Pass 1 left
+whole. This is a Salesforce judgement, not a reading exercise.
+
+| Signal | Action |
+|---|---|
+| A setup or config step is required before the main action | Create a dependency story |
+| The feature needs several distinct configurations to function at all | One story per configuration |
+| There is an admin-side build and an end-user-side experience | Split admin setup from user action |
 | The story would be sized XL | Break into smaller deliverable chunks |
-| Happy path and error path are very different flows | Consider splitting |
-| A setup step is required before the main action | Create a dependency story |
+| The fallback or error path is a materially different build | Split it out |
+
+Test: delete a story — does the feature still function end to end?
+
+Pass 2 produces a **sequence**. Populate `dependencies` to encode build
+order. A Pass 2 expansion whose stories have no dependencies between
+them is usually a sign the split was textual, not architectural.
+
+### Resulting type
+
+| Pass 1 | Pass 2 | Type |
+|---|---|---|
+| no split | no expansion | **A — Atomic** |
+| split | no expansion | **B — Compound** |
+| no split | expansion | **C — Implementation Depth** |
+| split | expansion on ≥1 branch | **B+C** |
+
+A REQ that reads as atomic can still be pure Type C. Type C splits are
+not visible in the requirement text — that is what distinguishes them.
 
 When splitting, use sub-story IDs: US-012a, US-012b, US-012c.
-All sub-stories reference the same parent REQ in the REQ Ref column.
+All sub-stories reference the same parent REQ in `req_ref`, however many
+passes produced them.
+
+---
+
+## Worked Examples
+
+### Type B — compound in the text
+
+```
+REQ-023 | Team leads should be able to reassign cases between agents,
+         and agents should be able to request reassignment of a case
+         they cannot resolve.
+```
+
+```
+REQ-023 → Type B → 2 stories
+  Reason: Two personas, two opposing directions — a push (lead reassigns)
+          and a pull (agent requests). Both stated explicitly in the text.
+  Story 1: As a Senior Agent / Team Lead, I want to reassign a case to a
+           different agent so that work moves off a blocked agent quickly
+  Story 2: As a Service Agent, I want to request reassignment of a case I
+           cannot resolve so that it reaches someone with the right expertise
+```
+
+Both stories are siblings — either could ship alone and be useful, so
+`dependencies` stays empty on both.
+
+### Type C — depth not visible in the text
+
+```
+REQ-021 | Cases should be routed automatically to the right agent
+         based on their skills and current availability.
+```
+
+This passes the atomic test on the page — one implied persona, one
+action, one outcome, no "and". A text-level read produces one story.
+It cannot be built, or tested, as one story.
+
+```
+REQ-021 → Type C → 5 stories (Omni-Channel Routing)
+  Reason: Skills-based routing requires channel setup, capacity model,
+          skill mapping, agent-side work acceptance, and supervisor
+          oversight — each independently configurable and testable.
+  Story 1: Admin configures Service Channel and presence statuses
+  Story 2: Admin defines agent capacity and routing configuration
+  Story 3: Admin maps skills to cases and enables skills-based routing
+  Story 4: Agent receives, accepts and declines routed work in the console
+  Story 5: Service Manager monitors queue backlog and reassigns stuck work
+  Dependency chain: 1 → 2 → 3 → 4, 5
+```
+
+Story excerpt showing the fields that carry the decomposition:
+
+```json
+{
+  "id": "US-021d",
+  "req_ref": "REQ-021",
+  "title": "As a Service Agent I want to accept or decline work pushed to me so that I keep control of my workload when I am mid-conversation",
+  "tshirt_size": "S",
+  "salesforce": {
+    "build_type": "OOB",
+    "feature": "Omni-Channel Widget (Service Console)",
+    "notes": "Requires the Service Console app; decline reasons need a picklist if reporting on declines is in scope."
+  },
+  "dependencies": ["US-021c"]
+}
+```
+
+Nothing in REQ-021 mentions presence statuses, capacity, decline windows
+or supervisor reassignment. Type B pulls apart what is written; Type C
+adds what the platform requires.
+
+### Type B+C — both passes fire
+
+```
+REQ-024 | Cases should be routed by skill, and managers should be able
+         to override the routing manually.
+```
+
+```
+REQ-024 → Type B+C → 6 stories
+  Pass 1: 2 needs — automated skills-based routing, manual manager override
+  Pass 2: skills-based routing → 5 stories (Omni-Channel Routing);
+          manual override stays atomic
+  Story 1–5: as REQ-021 above
+  Story 6: As a Service Manager, I want to manually reassign a routed case
+           so that I can respond to escalations routing cannot anticipate
+  Dependency chain: 1 → 2 → 3 → 4, 5; 6 depends on 3
+```
+
+Classifying this REQ as B alone loses four stories. Classifying it as C
+alone loses the override. Running both passes is what catches it.
